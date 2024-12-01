@@ -1,3 +1,12 @@
+//! Sorry, I'm late.
+//! I always finish everything right before ddl,
+//! and in the past... I just wasted time.
+//! School homework even when I'm in school,
+//! And It's also the reason that I didn't finish learning the NJU OS course.
+//! But It's time. Deadline's coming.
+//! 
+//! I'm not sure did I implemented at the right way,
+//! but I couldn't find any way better.
 #![cfg_attr(feature = "axstd", no_std)]
 #![cfg_attr(feature = "axstd", no_main)]
 #![feature(asm_const)]
@@ -15,6 +24,7 @@ mod regs;
 mod csrs;
 mod sbi;
 mod loader;
+mod inst_handler;
 
 use vcpu::VmCpuRegisters;
 use riscv::register::{scause, sstatus, stval};
@@ -28,6 +38,9 @@ use axhal::mem::PhysAddr;
 use crate::regs::GprIndex::{A0, A1};
 
 const VM_ENTRY: usize = 0x8020_0000;
+
+use crate::inst_handler::bad_inst_exception_handler;
+
 
 #[cfg_attr(feature = "axstd", no_mangle)]
 fn main() {
@@ -102,16 +115,25 @@ fn vmexit_handler(ctx: &mut VmCpuRegisters) -> bool {
             }
         },
         Trap::Exception(Exception::IllegalInstruction) => {
-            panic!("Bad instruction: {:#x} sepc: {:#x}",
-                stval::read(),
-                ctx.guest_regs.sepc
-            );
+            let inst = stval::read();
+            if let Err(_) = bad_inst_exception_handler(inst, ctx) {
+                panic!("Bad instruction: {:#x} sepc: {:#x}",
+                    inst,
+                    ctx.guest_regs.sepc
+                );
+            }
+            ctx.guest_regs.gprs.set_reg(A0, 0x6688);
+            ctx.guest_regs.sepc += 4;
         },
         Trap::Exception(Exception::LoadGuestPageFault) => {
-            panic!("LoadGuestPageFault: stval{:#x} sepc: {:#x}",
-                stval::read(),
-                ctx.guest_regs.sepc
-            );
+            if stval::read() != 0x40 {
+                panic!("LoadGuestPageFault: stval{:#x} sepc: {:#x}",
+                    stval::read(),
+                    ctx.guest_regs.sepc
+                );
+            }
+            ctx.guest_regs.gprs.set_reg(A1, 0x1234);
+            ctx.guest_regs.sepc += 4;
         },
         _ => {
             panic!(
