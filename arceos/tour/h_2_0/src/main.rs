@@ -59,16 +59,19 @@ fn main() {
                     debug!("addr {:#x} access {:#x}", addr, access_flags);
                     assert_eq!(addr, 0x2200_0000.into(), "Now we ONLY handle pflash#2.");
                     let mapping_flags = MappingFlags::from_bits(0xf).unwrap();
-                    // Passthrough-Mode
-                    let _ = aspace.map_linear(addr, addr.as_usize().into(), 4096, mapping_flags);
 
                     /*
+                    // Passthrough-Mode
+                    let _ = aspace.map_linear(addr, addr.as_usize().into(), 4096, mapping_flags); 
+                    */
+
+                    
                     // Emulator-Mode
                     // Pretend to load file to fill buffer.
                     let buf = "pfld";
                     aspace.map_alloc(addr, 4096, mapping_flags, true);
-                    aspace.write(addr, buf.as_bytes());
-                    */
+                    load_vm_image("/sbin/buffer.bin".into(), addr, &aspace).expect("Could not load buffer");
+                    // aspace.write(addr, buf.as_bytes());
                 },
                 _ => {
                     panic!("Unhandled VM-Exit: {:?}", exit_reason);
